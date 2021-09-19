@@ -1663,6 +1663,16 @@ hints.selectors:
       - 'input:not([type])'
       - '[contenteditable]:not([contenteditable="false"])'
       - 'textarea'
+    text:
+      - 'a'
+      - 'area'
+      - 'textarea'
+      - 'select'
+      - 'input:not([type="hidden"])'
+      - 'button'
+      - 'link'
+      - 'summary'
+      
   type:
     name: Dict
     keytype: String
@@ -3510,6 +3520,7 @@ bindings.default:
       ;d: hint links download
       ;t: hint inputs
       gi: hint inputs --first
+      e: hint text easymotion
       h: scroll left
       j: scroll down
       k: scroll up
