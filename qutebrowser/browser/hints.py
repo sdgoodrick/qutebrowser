@@ -63,6 +63,7 @@ class Target(enum.Enum):
     spawn = enum.auto()
     delete = enum.auto()
     right_click = enum.auto()
+    easymotion = enum.auto()
 
 
 class HintingError(Exception):
@@ -76,6 +77,17 @@ def on_mode_entered(mode: usertypes.KeyMode, win_id: int) -> None:
         modeman.leave(win_id, usertypes.KeyMode.hint, 'insert mode',
                       maybe=True)
 
+@dataclasses.dataclass
+class EasymotionOffset:
+
+    """Stores offsets from an element used by easymotion
+
+    Attributes:
+        start: The offset to the start of the unit.
+        end: The offset to the end of the unit.
+    """
+    start = 0
+    end = 0
 
 class HintLabel(QLabel):
 
@@ -83,14 +95,16 @@ class HintLabel(QLabel):
 
     Attributes:
         elem: The element this label belongs to.
+        offsets: The offsets from the element used by easymotion.
         _context: The current hinting context.
     """
-
+    
     def __init__(self, elem: webelem.AbstractWebElement,
                  context: 'HintContext') -> None:
         super().__init__(parent=context.tab)
         self._context = context
         self.elem = elem
+        self.offsets = EasymotionOffset()
 
         self.setTextFormat(Qt.RichText)
 
@@ -173,6 +187,7 @@ class HintContext:
                 userscript: Call a custom userscript.
                 spawn: Spawn a simple command.
                 delete: Delete the selected element.
+                easymotion: Move caret to the selected element.
         to_follow: The link to follow when enter is pressed.
         args: Custom arguments for userscript/spawn
         rapid: Whether to do rapid hinting.
@@ -246,6 +261,13 @@ class HintActions:
                 elem.click(target_mapping[context.target])
         except webelem.Error as e:
             raise HintingError(str(e))
+
+    def easymotion(self, elem: webelem.AbstractWebElement,
+                   offset_start: int, offset_end: int,
+                   context: HintContext) -> None:
+        """Move caret to an element"""
+        msg = "Moving caret to element with offset {0}..{1}".format(offset_start, offset_end)
+        message.info(msg)
 
     def yank(self, url: QUrl, context: HintContext) -> None:
         """Yank an element to the clipboard or primary selection."""
@@ -400,6 +422,7 @@ class HintManager(QObject):
         Target.userscript: "Call userscript via hint",
         Target.spawn: "Spawn command via hint",
         Target.delete: "Delete an element",
+        Target.easymotion: "Move caret to an element",
     }
 
     set_text = pyqtSignal(str)
@@ -695,6 +718,7 @@ class HintManager(QObject):
                 - `links`: Only links.
                 - `images`: Only images.
                 - `inputs`: Only input fields.
+                - `text`: Only text fields
 
                 Custom groups can be added via the `hints.selectors` setting
                 and also used here.
@@ -720,6 +744,7 @@ class HintManager(QObject):
                                 link.
                 - `spawn`: Spawn a command.
                 - `delete`: Delete the selected element.
+                - `easymotion`: Move caret to the selected element.
 
             mode: The hinting mode to use.
 
@@ -758,6 +783,7 @@ class HintManager(QObject):
             Target.fill,  # exits hint mode
             Target.right_click,  # opens multiple context menus
             Target.delete,  # deleting elements shifts them
+            Target.easymotion, # moves the caret each time
         ]
         if rapid and target in no_rapid_targets:
             name = target.name.replace('_', '-')
@@ -966,7 +992,12 @@ class HintManager(QObject):
             Target.fill: self._actions.preset_cmd_text,
             Target.spawn: self._actions.spawn,
         }
+        # Handlers which take an element and offset
+        text_handlers = {
+            Target.easymotion: self._actions.easymotion,
+        }
         elem = self._context.labels[keystr].elem
+        offsets = self._context.labels[keystr].offsets
 
         if not elem.has_frame():
             message.error("This element has no webframe.")
@@ -984,6 +1015,10 @@ class HintManager(QObject):
                                         url, self._context)
             if self._context.add_history:
                 history.web_history.add_url(url, "")
+        elif self._context.target in text_handlers:
+            handler = functools.partial(text_handlers[self._context.target],
+                                        elem, offsets.start, offsets.end,
+                                        self._context)
         else:
             raise ValueError("No suitable handler found!")
 
