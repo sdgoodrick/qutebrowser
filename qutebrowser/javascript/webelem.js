@@ -238,6 +238,101 @@ window._qutebrowser.webelem = (function() {
         return {"success": true, "result": out};
     };
 
+    // Gets the positions of individual text units within text nodes
+    // at the specified granularity.
+    // FIXME: possible functionality = extend selection to, so keep old selection.
+    function get_text_positions(node, granularity = "word") {
+        let selection = document.getSelection();
+        selection.setPosition(node, 0);
+
+        let positions = [];
+        let sel_start = 0;
+
+        do {
+            console.log("at node: ", node);
+	    selection.modify("move", "forward", granularity);
+	    let sel_offset = selection.anchorOffset;
+            console.log(selection.anchorOffset);
+	    // selection.setBaseAndExtent(node, sel_start, node, sel_offset);
+            selection.extend(node.firstChild, sel_offset);
+
+	    let bound = selection.getRangeAt(0).getClientRects()[0];
+	    if (bound && bound.height > 0 && bound.width > 0) {
+	        let position = {
+	            left:   bound.left,
+	            top:    bound.top,
+	            width:  bound.width,
+	            height: bound.height,
+	        };
+
+                let text = selection.toString();
+
+	        positions.push(position);
+	    }
+
+	    sel_start = sel_offset;
+	    selection.setPosition(node.firstChild, sel_start);
+        // } while (sel_start < node.data.length);
+        } while (sel_start < node.firstChild.length);
+
+        return positions;
+    }
+
+    funcs.find_text = (selector, only_visible) => {
+        let elems = [];
+
+        try {
+            elems = document.querySelectorAll(selector);
+        } catch (ex) {
+            return {"success": false, "error": ex.toString()};
+        }
+
+        // Remove empty elements.
+        elems = Array.prototype.slice.call(elems).filter(el => {
+            let children = el.childNodes;
+            let result = [];
+
+            children.forEach(child => {
+                if (child.nodeType == Node.TEXT_NODE
+                    && child.data.trim().length > 1) {
+        	    result.push(child);
+                }
+            });
+
+            return result;
+        });
+
+        const subelem_frames = window.frames;
+        const out = [];
+        let positions = [];
+
+        for (let i = 0; i < elems.length; ++i) {
+            if (!only_visible || is_visible(elems[i])) {
+                out.push(serialize_elem(elems[i]));
+                positions.push(get_text_positions(elems[i]));
+            }
+        }
+
+        // Recurse into frames and add them
+        for (let i = 0; i < subelem_frames.length; i++) {
+            if (iframe_same_domain(subelem_frames[i])) {
+                const frame = subelem_frames[i];
+                const subelems = frame.document.
+                    querySelectorAll(selector);
+                for (let elem_num = 0; elem_num < subelems.length; ++elem_num) {
+                    if (!only_visible ||
+                        is_visible(subelems[elem_num], frame)) {
+                        out.push(serialize_elem(subelems[elem_num], frame));
+                        positions.push(get_text_positions(subelems[elem_num]));
+                    }
+                }
+            }
+        }
+
+        // return positions;
+        return {"success": true, "result": out};
+    }
+
     // Runs a function in a frame until the result is not null, then return
     // If no frame succeeds, return null
     function run_frames(func) {

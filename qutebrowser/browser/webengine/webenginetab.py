@@ -482,7 +482,6 @@ class WebEngineCaret(browsertab.AbstractCaret):
         state = browsertab.SelectionState[state_str]
         self.selection_toggled.emit(state)
 
-
 class WebEngineScroller(browsertab.AbstractScroller):
 
     """QtWebEngine implementations related to scrolling."""
@@ -763,6 +762,13 @@ class WebEngineElements(browsertab.AbstractElements):
                                       only_visible)
         js_cb = functools.partial(self._js_cb_multiple, callback, error_cb)
         self._tab.run_js_async(js_code, js_cb)
+
+    def find_text(self, selector, callback, error_cb, *,
+                 only_visible = False) -> None:
+        js_code = javascript.assemble('webelem', 'find_text', selector,
+                                      only_visible)
+        js_cb = functools.partial(self._js_cb_multiple, callback, error_cb)
+        self._tab.run_js_async(js_code, js_cb)        
 
     def find_id(self, elem_id, callback):
         js_code = javascript.assemble('webelem', 'find_id', elem_id)

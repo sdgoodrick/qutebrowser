@@ -711,6 +711,23 @@ class WebKitElements(browsertab.AbstractElements):
 
         callback(elems)
 
+    def find_text(self, selector: str,
+                 callback: _MultiCallback,
+                 error_cb: _ErrorCallback, *,
+                 only_visible: bool = False) -> None:
+        """Find all text nodes with a given granularity async.
+
+        If there's an error, the callback is called with a webelem.Error
+        instance.
+
+        Args:
+            callback: The callback to be called when the search finished.
+            error_cb: The callback to be called when an error occurred.
+            selector: The CSS selector to search for.
+            only_visible: Only show elements which are visible on screen.
+        """
+        raise NotImplementedError
+
     def find_id(self, elem_id, callback):
         def find_id_cb(elems):
             """Call the real callback with the found elements."""

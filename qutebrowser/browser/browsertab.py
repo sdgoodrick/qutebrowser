@@ -545,7 +545,6 @@ class AbstractCaret(QObject):
     def follow_selected(self, *, tab: bool = False) -> None:
         raise NotImplementedError
 
-
 class AbstractScroller(QObject):
 
     """Attribute ``scroller`` of AbstractTab to manage scroll position."""
@@ -719,6 +718,23 @@ class AbstractElements:
                  error_cb: _ErrorCallback, *,
                  only_visible: bool = False) -> None:
         """Find all HTML elements matching a given selector async.
+
+        If there's an error, the callback is called with a webelem.Error
+        instance.
+
+        Args:
+            callback: The callback to be called when the search finished.
+            error_cb: The callback to be called when an error occurred.
+            selector: The CSS selector to search for.
+            only_visible: Only show elements which are visible on screen.
+        """
+        raise NotImplementedError
+
+    def find_text(self, selector: str,
+                 callback: _MultiCallback,
+                 error_cb: _ErrorCallback, *,
+                 only_visible: bool = False) -> None:
+        """Find all text nodes with a given granularity async.
 
         If there's an error, the callback is called with a webelem.Error
         instance.

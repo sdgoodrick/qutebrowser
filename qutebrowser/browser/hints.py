@@ -83,11 +83,15 @@ class EasymotionOffset:
     """Stores offsets from an element used by easymotion
 
     Attributes:
-        start: The offset to the start of the unit.
-        end: The offset to the end of the unit.
+        text_start: The offset to the start of the unit.
+        text_end: The offset to the end of the unit.
+        x: the x position of the hint
+        y: the y position of the hint
     """
-    start = 0
-    end = 0
+    text_start = 0
+    text_end = 0
+    x = 0
+    y = 0
 
 class HintLabel(QLabel):
 
@@ -100,11 +104,12 @@ class HintLabel(QLabel):
     """
     
     def __init__(self, elem: webelem.AbstractWebElement,
-                 context: 'HintContext') -> None:
+                 context: 'HintContext',
+                 offset: EasymotionOffset = EasymotionOffset()) -> None:
         super().__init__(parent=context.tab)
         self._context = context
         self.elem = elem
-        self.offsets = EasymotionOffset()
+        self.offsets = offset
 
         self.setTextFormat(Qt.RichText)
 
@@ -115,7 +120,12 @@ class HintLabel(QLabel):
         self.setIndent(0)
 
         self._context.tab.contents_size_changed.connect(self._move_to_elem)
-        self._move_to_elem()
+        if (self.offsets.x != 0 or self.offsets.y != 0):
+            message.info("moving to {}, {}", self.offsets.x, self.offsets.y);
+            self._move_to_position()
+        else:
+            message.info("moving to elem...");
+            self._move_to_elem()
         self.show()
 
     def __repr__(self) -> str:
@@ -159,6 +169,16 @@ class HintLabel(QLabel):
         no_js = config.cache['hints.find_implementation'] != 'javascript'
         rect = self.elem.rect_on_view(no_js=no_js)
         self.move(rect.x(), rect.y())
+
+    @pyqtSlot()
+    def _move_to_position(self) -> None:
+        """Reposition the label to its absolute position."""
+        if not self.elem.has_frame():
+            # This sometimes happens for some reason...
+            log.hints.debug("Frame for {!r} vanished!".format(self))
+            self.hide()
+            return
+        self.move(self.offsets.x, self.offsets.y)
 
     def cleanup(self) -> None:
         """Clean up this element and hide it."""
@@ -657,6 +677,8 @@ class HintManager(QObject):
             message.error("No elements found.")
             return
 
+        message.info("hello from _start_cb");
+
         # Because _start_cb is called asynchronously, it's possible that the
         # user switched to another tab or closed the tab/window. In that case
         # we should not start hinting.
@@ -815,11 +837,20 @@ class HintManager(QObject):
         except webelem.Error as e:
             raise cmdutils.CommandError(str(e))
 
-        self._context.tab.elements.find_css(
-            selector,
-            callback=self._start_cb,
-            error_cb=lambda err: message.error(str(err)),
-            only_visible=True)
+        if target == Target.easymotion:
+            message.info("hello from easymotion");
+            self._context.tab.elements.find_text(
+                selector,
+                callback=self._start_cb,
+                error_cb=lambda err: message.error(str(err)),
+                only_visible=True)
+            message.info("we made it back");
+        else:
+            self._context.tab.elements.find_css(
+                selector,
+                callback=self._start_cb,
+                error_cb=lambda err: message.error(str(err)),
+                only_visible=True)
 
     def _get_hint_mode(self, mode: Optional[str]) -> str:
         """Get the hinting mode to use based on a mode argument."""
