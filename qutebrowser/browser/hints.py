@@ -144,7 +144,6 @@ class HintLabel(QLabel):
             return
         no_js = config.cache['hints.find_implementation'] != 'javascript'
         rect = self.elem.rect_on_view(no_js=no_js)
-        message.info("as i said ({0}, {1})".format(rect.x(), rect.y()))
         self.move(rect.x(), rect.y())
 
     def cleanup(self) -> None:
@@ -252,10 +251,28 @@ class HintActions:
     def easymotion(self, elem: webelem.AbstractWebElement,
                    context: HintContext) -> None:
         """Move caret to an element"""
-        no_js = config.cache['hints.find_implementation'] != 'javascript'
-        rect = elem.rect_on_view(no_js=no_js)
-        msg = "Moving caret to element with offset ({0}, {1})".format(rect.x(), rect.y())
-        message.info(msg) 
+        # mode_manager = modeman.instance(self._win_id)
+        modeman.enter(self._win_id, usertypes.KeyMode.caret, 'easymotion')
+        rect = elem.rect_on_view()
+        x = rect.x()
+        y = rect.y()
+        w = rect.width()
+        h = rect.height()
+        commandrunner = runners.CommandRunner(self._win_id)
+        commandrunner.run_safely("move-to-rect {0} {1} {2} {3}".format(x, y, w, h))
+        
+        # no_js = config.cache['hints.find_implementation'] != 'javascript'
+        # rect = elem.rect_on_view(no_js=no_js)
+        # msg = "Moving caret to element with offset ({0}, {1})".format(rect.x(), rect.y())
+        # message.info(msg) 
+        # # sel = utils.supports_selection()
+        # sel = False;
+        # new_content = str(elem)
+        # utils.set_clipboard(new_content, selection=sel)
+        # msg = "Yanked text to {}: {}".format(
+        #     "primary selection" if sel else "clipboard",
+        #     new_content)
+        # message.info(msg, replace='rapid-hints' if context.rapid else None)
 
     def yank(self, url: QUrl, context: HintContext) -> None:
         """Yank an element to the clipboard or primary selection."""
@@ -637,7 +654,6 @@ class HintManager(QObject):
 
     def _start_cb(self, elems: _ElemsType) -> None:
         """Initialize the elements and labels based on the context set."""
-        message.info("hello from _start_cb");
         if self._context is None:
             log.hints.debug("In _start_cb without context!")
             return
@@ -806,13 +822,11 @@ class HintManager(QObject):
             raise cmdutils.CommandError(str(e))
 
         if target == Target.easymotion:
-            message.info("hello from easymotion");
             self._context.tab.elements.find_text(
                 selector,
                 callback=self._start_cb,
                 error_cb=lambda err: message.error(str(err)),
                 only_visible=True)
-            message.info("we made it back");
         else:
             self._context.tab.elements.find_css(
                 selector,

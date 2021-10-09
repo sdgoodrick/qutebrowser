@@ -400,6 +400,9 @@ class WebEngineCaret(browsertab.AbstractCaret):
     def reverse_selection(self):
         self._js_call('reverseSelection')
 
+    def move_to_rect(self, x: float, y: float, width: float, height: float):
+        self._js_call('moveToRect', x, y, width, height)
+
     def _follow_selected_cb_wrapped(self, js_elem, tab):
         if sip.isdeleted(self):
             # Sometimes, QtWebEngine JS callbacks seem to be stuck, and will
@@ -724,7 +727,6 @@ class WebEngineElements(browsertab.AbstractElements):
             error_cb: The callback to call in case of an error.
             js_elems: The elements serialized from javascript.
         """
-        message.info("hello from js_cb_multiple");
         if js_elems is None:
             error_cb(webelem.Error("Unknown error while getting "
                                    "elements"))
@@ -766,7 +768,6 @@ class WebEngineElements(browsertab.AbstractElements):
 
     def find_text(self, selector, callback, error_cb, *,
                  only_visible = False) -> None:
-        message.info("hello from find text");
         js_code = javascript.assemble('webelem', 'find_text', selector,
                                       only_visible)
         js_cb = functools.partial(self._js_cb_multiple, callback, error_cb)

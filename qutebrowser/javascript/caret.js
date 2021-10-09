@@ -1457,5 +1457,31 @@ window._qutebrowser.caret = (function() {
         CaretBrowsing.reverseSelection();
     };
 
+    funcs.moveToRect = (x, y, w, h) => {
+        let elem = document.elementFromPoint(x, y);
+
+        let range = document.caretRangeFromPoint(x, y);
+        let range2 = document.caretRangeFromPoint(x + w, y);
+        let start = range.startOffset;
+        let end = range2.startOffset;
+
+        // Create a selection for our range so we can perform some
+        // operations on it.
+        var selectionRange = document.createRange();
+        selectionRange.selectNodeContents(elem.firstChild);
+        selectionRange.setStart(elem.firstChild, start);
+        selectionRange.setEnd(elem.firstChild, end);
+
+        // // Trim leading and trailing whitespace.
+        const text = selectionRange.toString();
+        let textStart = text.length - text.trimStart().length;
+        let textEnd = text.length - text.trimEnd().length;
+
+        // Try to set the selection.
+        const sel = window.getSelection();
+        sel.setBaseAndExtent(elem.firstChild, start + textStart,
+                             elem.firstChild, end - textEnd);
+    };
+
     return funcs;
 })();

@@ -151,19 +151,36 @@ window._qutebrowser.webelem = (function() {
             return null;
         }
 
-        // FIXME: not quite!
-        const caret_position = elem.selectionStart;
+        // Build a selection around our unit.
+        // const selectionRange = (function(elem, client_rect) {
+            let range = document.caretRangeFromPoint(
+                client_rect.left, client_rect.top);
+            let range2 = document.caretRangeFromPoint(
+                client_rect.left + client_rect.width,client_rect.top);
+            let start = range.startOffset;
+            let end = range2.startOffset;
+            var selectionRange = document.createRange();
+            selectionRange.selectNodeContents(elem.firstChild);
+            selectionRange.setStart(elem.firstChild, start);
+            selectionRange.setEnd(elem.firstChild, end);
+        //     return selectionRange;
+        // })();
+
+        const caret_position = selectionRange ?
+              selectionRange.startOffset : elem.selectionStart;
+        if (document.caretRangeFromPoint) {
+        } else {
+            const caret_position = elem.selectionStart;
+        }
 
         const id = elements.length;
         elements[id] = elem;
 
-        const is_content_editable = false;
         const out = {
             "id": id,
             "rects": [],  // Gets filled up later
             "caret_position": caret_position,
-            // We are constructing a fake "element", it won't be editable.
-            "is_content_editable": false,
+            "is_content_editable": true,
         };
 
         // Deal with various fun things which can happen in form elements
@@ -197,8 +214,9 @@ window._qutebrowser.webelem = (function() {
             out.outer_xml = "";
         }
 
-        // FIXME: just add the text of the range
-        if (typeof elem.textContent === "string") {
+        if (selectionRange) {
+            out.text = selectionRange.toString().trim();
+        } else if (typeof elem.textContent === "string") {
             out.text = elem.textContent;
         } else if (typeof elem.text === "string") {
             out.text = elem.text;
@@ -211,11 +229,9 @@ window._qutebrowser.webelem = (function() {
         }
         out.attributes = attributes;
 
-        // FIXME: does this matter to me?
+        // FIXME: is the frame relevant?
         const frame_offset_rect = get_frame_offset(frame);
         out.rects.push(add_offset_rect(client_rect, frame_offset_rect));
-
-        console.log("elem[", id, "]: ", JSON.stringify(out));
 
         return out;
     }
@@ -323,10 +339,10 @@ window._qutebrowser.webelem = (function() {
         let sel_start = 0;
 
         do {
-            console.log("at node: ", node);
+            // console.log("at node: ", node);
 	    selection.modify("move", "forward", granularity);
 	    let sel_offset = selection.anchorOffset;
-            console.log(selection.anchorOffset);
+            // console.log(selection.anchorOffset);
 	    selection.setBaseAndExtent(node.firstChild, sel_start,
                                        node.firstChild, sel_offset);
 

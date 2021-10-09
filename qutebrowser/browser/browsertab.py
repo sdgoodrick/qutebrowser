@@ -535,6 +535,9 @@ class AbstractCaret(QObject):
     def reverse_selection(self) -> None:
         raise NotImplementedError
 
+    def move_to_rect(self, x: float, y: float, w: float, h: float) -> None:
+        raise NotImplementedError
+
     def _follow_enter(self, tab: bool) -> None:
         """Follow a link by faking an enter press."""
         if tab:

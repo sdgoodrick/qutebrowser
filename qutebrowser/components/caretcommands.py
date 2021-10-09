@@ -220,3 +220,10 @@ def selection_follow(tab_obj: apitypes.Tab, *, tab: bool = False) -> None:
 def selection_reverse(tab: apitypes.Tab) -> None:
     """Swap the stationary and moving end of the current selection."""
     tab.caret.reverse_selection()
+
+
+@cmdutils.register(modes=[cmdutils.KeyMode.caret])
+@cmdutils.argument('tab', value=cmdutils.Value.cur_tab)
+def move_to_rect(tab: apitypes.Tab, x: float, y: float, w: float, h: float) -> None:
+    """Move to text at a rect"""
+    tab.caret.move_to_rect(x, y, w, h)
