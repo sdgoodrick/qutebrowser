@@ -77,39 +77,20 @@ def on_mode_entered(mode: usertypes.KeyMode, win_id: int) -> None:
         modeman.leave(win_id, usertypes.KeyMode.hint, 'insert mode',
                       maybe=True)
 
-@dataclasses.dataclass
-class EasymotionOffset:
-
-    """Stores offsets from an element used by easymotion
-
-    Attributes:
-        text_start: The offset to the start of the unit.
-        text_end: The offset to the end of the unit.
-        x: the x position of the hint
-        y: the y position of the hint
-    """
-    text_start = 0
-    text_end = 0
-    x = 0
-    y = 0
-
 class HintLabel(QLabel):
 
     """A label for a link.
 
     Attributes:
         elem: The element this label belongs to.
-        offsets: The offsets from the element used by easymotion.
         _context: The current hinting context.
     """
     
     def __init__(self, elem: webelem.AbstractWebElement,
-                 context: 'HintContext',
-                 offset: EasymotionOffset = EasymotionOffset()) -> None:
+                 context: 'HintContext') -> None:
         super().__init__(parent=context.tab)
         self._context = context
         self.elem = elem
-        self.offsets = offset
 
         self.setTextFormat(Qt.RichText)
 
@@ -120,12 +101,7 @@ class HintLabel(QLabel):
         self.setIndent(0)
 
         self._context.tab.contents_size_changed.connect(self._move_to_elem)
-        if (self.offsets.x != 0 or self.offsets.y != 0):
-            message.info("moving to {}, {}", self.offsets.x, self.offsets.y);
-            self._move_to_position()
-        else:
-            message.info("moving to elem...");
-            self._move_to_elem()
+        self._move_to_elem()
         self.show()
 
     def __repr__(self) -> str:
@@ -168,17 +144,8 @@ class HintLabel(QLabel):
             return
         no_js = config.cache['hints.find_implementation'] != 'javascript'
         rect = self.elem.rect_on_view(no_js=no_js)
+        message.info("as i said ({0}, {1})".format(rect.x(), rect.y()))
         self.move(rect.x(), rect.y())
-
-    @pyqtSlot()
-    def _move_to_position(self) -> None:
-        """Reposition the label to its absolute position."""
-        if not self.elem.has_frame():
-            # This sometimes happens for some reason...
-            log.hints.debug("Frame for {!r} vanished!".format(self))
-            self.hide()
-            return
-        self.move(self.offsets.x, self.offsets.y)
 
     def cleanup(self) -> None:
         """Clean up this element and hide it."""
@@ -283,11 +250,12 @@ class HintActions:
             raise HintingError(str(e))
 
     def easymotion(self, elem: webelem.AbstractWebElement,
-                   offset_start: int, offset_end: int,
                    context: HintContext) -> None:
         """Move caret to an element"""
-        msg = "Moving caret to element with offset {0}..{1}".format(offset_start, offset_end)
-        message.info(msg)
+        no_js = config.cache['hints.find_implementation'] != 'javascript'
+        rect = elem.rect_on_view(no_js=no_js)
+        msg = "Moving caret to element with offset ({0}, {1})".format(rect.x(), rect.y())
+        message.info(msg) 
 
     def yank(self, url: QUrl, context: HintContext) -> None:
         """Yank an element to the clipboard or primary selection."""
@@ -669,6 +637,7 @@ class HintManager(QObject):
 
     def _start_cb(self, elems: _ElemsType) -> None:
         """Initialize the elements and labels based on the context set."""
+        message.info("hello from _start_cb");
         if self._context is None:
             log.hints.debug("In _start_cb without context!")
             return
@@ -676,8 +645,6 @@ class HintManager(QObject):
         if not elems:
             message.error("No elements found.")
             return
-
-        message.info("hello from _start_cb");
 
         # Because _start_cb is called asynchronously, it's possible that the
         # user switched to another tab or closed the tab/window. In that case
@@ -689,6 +656,7 @@ class HintManager(QObject):
             log.hints.debug(
                 "Current tab changed ({} -> {}) before _start_cb is run."
                 .format(self._context.tab.tab_id, tab.tab_id))
+            message.info("we out");
             return
 
         strings = self._hint_strings(elems)
@@ -1028,7 +996,6 @@ class HintManager(QObject):
             Target.easymotion: self._actions.easymotion,
         }
         elem = self._context.labels[keystr].elem
-        offsets = self._context.labels[keystr].offsets
 
         if not elem.has_frame():
             message.error("This element has no webframe.")
@@ -1048,8 +1015,7 @@ class HintManager(QObject):
                 history.web_history.add_url(url, "")
         elif self._context.target in text_handlers:
             handler = functools.partial(text_handlers[self._context.target],
-                                        elem, offsets.start, offsets.end,
-                                        self._context)
+                                        elem, self._context)
         else:
             raise ValueError("No suitable handler found!")
 

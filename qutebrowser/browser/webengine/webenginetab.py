@@ -724,6 +724,7 @@ class WebEngineElements(browsertab.AbstractElements):
             error_cb: The callback to call in case of an error.
             js_elems: The elements serialized from javascript.
         """
+        message.info("hello from js_cb_multiple");
         if js_elems is None:
             error_cb(webelem.Error("Unknown error while getting "
                                    "elements"))
@@ -765,6 +766,7 @@ class WebEngineElements(browsertab.AbstractElements):
 
     def find_text(self, selector, callback, error_cb, *,
                  only_visible = False) -> None:
+        message.info("hello from find text");
         js_code = javascript.assemble('webelem', 'find_text', selector,
                                       only_visible)
         js_cb = functools.partial(self._js_cb_multiple, callback, error_cb)

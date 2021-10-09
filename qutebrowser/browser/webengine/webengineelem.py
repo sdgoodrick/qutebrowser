@@ -26,7 +26,7 @@ from PyQt5.QtCore import QRect, QEventLoop
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtWebEngineWidgets import QWebEngineSettings
 
-from qutebrowser.utils import log, javascript, urlutils, usertypes, utils
+from qutebrowser.utils import log, javascript, urlutils, usertypes, utils, message
 from qutebrowser.browser import webelem
 
 if TYPE_CHECKING:
@@ -188,6 +188,9 @@ class WebEngineElement(webelem.AbstractWebElement):
             height = rect['height']
             left = rect['left']
             top = rect['top']
+            zoom = self._tab.zoom.factor()
+            msg = "rect at xywh: {0}, {1}, {2}, {3}".format(left * zoom, top * zoom,  width * zoom, height *zoom);
+            message.info(msg);
             if width > 1 and height > 1:
                 # Fix coordinates according to zoom level
                 # We're not checking for zoom.text_only here as that doesn't

@@ -141,7 +141,81 @@ window._qutebrowser.webelem = (function() {
             );
         }
 
-        // console.log(JSON.stringify(out));
+        // console.log("elem[", id, "]: ", JSON.stringify(out));
+
+        return out;
+    }
+
+    function serialize_text(elem, client_rect, frame = null) {
+        if (!elem) {
+            return null;
+        }
+
+        // FIXME: not quite!
+        const caret_position = elem.selectionStart;
+
+        const id = elements.length;
+        elements[id] = elem;
+
+        const is_content_editable = false;
+        const out = {
+            "id": id,
+            "rects": [],  // Gets filled up later
+            "caret_position": caret_position,
+            // We are constructing a fake "element", it won't be editable.
+            "is_content_editable": false,
+        };
+
+        // Deal with various fun things which can happen in form elements
+        // https://github.com/qutebrowser/qutebrowser/issues/2569
+        // https://github.com/qutebrowser/qutebrowser/issues/2877
+        // https://stackoverflow.com/q/22942689/2085149
+        if (typeof elem.tagName === "string") {
+            out.tag_name = elem.tagName;
+        } else if (typeof elem.nodeName === "string") {
+            out.tag_name = elem.nodeName;
+        } else {
+            out.tag_name = "";
+        }
+
+        if (typeof elem.className === "string") {
+            out.class_name = elem.className;
+        } else {
+            // e.g. SVG elements
+            out.class_name = "";
+        }
+
+        if (typeof elem.value === "string" || typeof elem.value === "number") {
+            out.value = elem.value;
+        } else {
+            out.value = "";
+        }
+
+        if (typeof elem.outerHTML === "string") {
+            out.outer_xml = elem.outerHTML;
+        } else {
+            out.outer_xml = "";
+        }
+
+        // FIXME: just add the text of the range
+        if (typeof elem.textContent === "string") {
+            out.text = elem.textContent;
+        } else if (typeof elem.text === "string") {
+            out.text = elem.text;
+        }  // else: don't add the text at all
+
+        const attributes = {};
+        for (let i = 0; i < elem.attributes.length; ++i) {
+            const attr = elem.attributes[i];
+            attributes[attr.name] = attr.value;
+        }
+        out.attributes = attributes;
+
+        // FIXME: does this matter to me?
+        const frame_offset_rect = get_frame_offset(frame);
+        out.rects.push(add_offset_rect(client_rect, frame_offset_rect));
+
+        console.log("elem[", id, "]: ", JSON.stringify(out));
 
         return out;
     }
@@ -253,8 +327,8 @@ window._qutebrowser.webelem = (function() {
 	    selection.modify("move", "forward", granularity);
 	    let sel_offset = selection.anchorOffset;
             console.log(selection.anchorOffset);
-	    // selection.setBaseAndExtent(node, sel_start, node, sel_offset);
-            selection.extend(node.firstChild, sel_offset);
+	    selection.setBaseAndExtent(node.firstChild, sel_start,
+                                       node.firstChild, sel_offset);
 
 	    let bound = selection.getRangeAt(0).getClientRects()[0];
 	    if (bound && bound.height > 0 && bound.width > 0) {
@@ -308,8 +382,13 @@ window._qutebrowser.webelem = (function() {
 
         for (let i = 0; i < elems.length; ++i) {
             if (!only_visible || is_visible(elems[i])) {
-                out.push(serialize_elem(elems[i]));
-                positions.push(get_text_positions(elems[i]));
+                let pos = get_text_positions(elems[i]);
+                for (let j = 0; j < pos.length; ++j) {
+                    let rect = new DOMRect(pos[j].left, pos[j].top,
+                                           pos[j].width, pos[j].height);
+                    out.push(serialize_text(elems[i], rect));
+                }
+                // out.push(serialize_elem(elems[i]));
             }
         }
 
@@ -322,8 +401,13 @@ window._qutebrowser.webelem = (function() {
                 for (let elem_num = 0; elem_num < subelems.length; ++elem_num) {
                     if (!only_visible ||
                         is_visible(subelems[elem_num], frame)) {
-                        out.push(serialize_elem(subelems[elem_num], frame));
-                        positions.push(get_text_positions(subelems[elem_num]));
+                        let pos = get_text_positions(elems[elem_num]);
+                        for (let j = 0; j < pos.length; ++j) {
+                            let rect = new DOMRect(pos[j].left, pos[j].top,
+                                                   pos[j].width, pos[j].height);
+                            out.push(serialize_text(elems[i], rect, frame));
+                        }
+                        // out.push(serialize_elem(elems[elem_num], frame));
                     }
                 }
             }
